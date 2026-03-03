@@ -1,0 +1,117 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Read data and perform transformations inside the functions below.
+# The functions return matplotlib Figure objects so they can be saved or displayed by the caller.
+
+def draw_cat_plot():
+    """
+    Create and return a categorical plot (seaborn catplot) that shows counts
+    of good (0) and bad (1) outcomes for the following features:
+    'cholesterol', 'gluc', 'smoke', 'alco', 'active', 'overweight'
+    Split into two panels by 'cardio' (cardio=0 and cardio=1).
+    """
+
+    # 1. Import the data
+    df = pd.read_csv('medical_examination.csv')
+
+    # 2. Add an overweight column (BMI > 25 -> 1, else 0)
+    bmi = df['weight'] / ((df['height'] / 100) ** 2)
+    df['overweight'] = (bmi > 25).astype(int)
+
+    # 3. Normalize 'cholesterol' and 'gluc' so that 0 = good, 1 = bad
+    df['cholesterol'] = (df['cholesterol'] > 1).astype(int)
+    df['gluc'] = (df['gluc'] > 1).astype(int)
+
+    # 5. Create DataFrame for cat plot using pd.melt with the requested columns
+    df_cat = pd.melt(
+        df,
+        id_vars=['cardio'],
+        value_vars=['cholesterol', 'gluc', 'smoke', 'alco', 'active', 'overweight']
+    )
+
+    # 6. Group and reformat the data to show counts of each feature split by cardio
+    df_cat = df_cat.groupby(['cardio', 'variable', 'value']).size().reset_index(name='total')
+
+    # 7. Draw the categorical plot using seaborn.catplot
+    catplot = sns.catplot(
+        data=df_cat,
+        x='variable',
+        y='total',
+        hue='value',
+        col='cardio',
+        kind='bar',
+        height=5,
+        aspect=1
+    )
+
+    catplot.set_axis_labels("variable", "total")
+    catplot._legend.set_title("value")
+
+    # 8. Get the figure for the output and store it in the fig variable
+    fig = catplot.fig
+
+    # 9. Do not modify the next two lines (kept here to match expected interface)
+    return fig
+
+
+def draw_heat_map():
+    """
+    Clean the data and draw a heatmap of the correlation matrix for the cleaned dataset.
+    Returns the matplotlib Figure object.
+    """
+
+    # 1. Import the data
+    df = pd.read_csv('medical_examination.csv')
+
+    # 2. Add overweight column and normalize cholesterol/gluc as in the cat plot
+    bmi = df['weight'] / ((df['height'] / 100) ** 2)
+    df['overweight'] = (bmi > 25).astype(int)
+    df['cholesterol'] = (df['cholesterol'] > 1).astype(int)
+    df['gluc'] = (df['gluc'] > 1).astype(int)
+
+    # 11. Clean the data by filtering out incorrect data
+    df_heat = df[
+        (df['ap_lo'] <= df['ap_hi']) &
+        (df['height'] >= df['height'].quantile(0.025)) &
+        (df['height'] <= df['height'].quantile(0.975)) &
+        (df['weight'] >= df['weight'].quantile(0.025)) &
+        (df['weight'] <= df['weight'].quantile(0.975))
+    ].copy()
+
+    # 12. Calculate the correlation matrix
+    corr = df_heat.corr()
+
+    # 13. Generate a mask for the upper triangle
+    mask = np.triu(np.ones_like(corr, dtype=bool))
+
+    # 14. Set up the matplotlib figure
+    fig, ax = plt.subplots(figsize=(12, 10))
+
+    # 15. Draw the heatmap with seaborn
+    sns.heatmap(
+        corr,
+        mask=mask,
+        annot=True,
+        fmt='.1f',
+        vmax=0.3,
+        center=0,
+        square=True,
+        linewidths=0.5,
+        cbar_kws={"shrink": 0.5},
+        ax=ax
+    )
+
+    # 16. Do not modify the next two lines (kept here to match expected interface)
+    return fig
+
+
+# If this module is run directly, create and save the figures.
+if __name__ == "__main__":
+    fig_cat = draw_cat_plot()
+    fig_cat.savefig("catplot.png")
+
+    fig_heat = draw_heat_map()
+    fig_heat.savefig("heatmap.png")
